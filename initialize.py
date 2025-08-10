@@ -4,6 +4,9 @@ from typing import List
 from dataclasses import dataclass
 import string
 import pickle
+import sys
+
+sys.setrecursionlimit(3000)
 
 # The name of the file where we will store the Trie structure
 TRIE_DATA_FILE = "trie_data.pkl"
@@ -112,6 +115,7 @@ def initialize_trie(root_folder: str) -> Trie:
                         if sentence:
                             trie.insert(sentence, file_path, i + 1)
                             total_sentences += 1
+                print(filename)
             except Exception as e:
                 print(f"Could not read file {file_path}: {e}")
 
