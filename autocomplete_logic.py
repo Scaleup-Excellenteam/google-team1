@@ -1,14 +1,6 @@
-from dataclasses import dataclass
+import os
 from typing import List, Tuple, Optional
-import sqlite3
-from Initialize import normalize_text
-
-@dataclass()
-class AutoCompleteData:
-    completed_sentence: str
-    source_text: str
-    offset: int
-    score: int
+from initialize import Trie, AutoCompleteData, normalize_text
 
 
 def calculate_score(matched_length: int, correction_type: int, correction_position: int) -> int:
@@ -61,7 +53,7 @@ def find_best_match(normalized_sentence: str, normalized_prefix: str) -> Optiona
     for i in range(sentence_len):
         # Replacement or no correction
         if i + prefix_len <= sentence_len:
-            window = normalized_sentence[i : i + prefix_len]
+            window = normalized_sentence[i: i + prefix_len]
             diff_count = 0
             diff_pos = -1
             for j in range(prefix_len):
@@ -73,53 +65,51 @@ def find_best_match(normalized_sentence: str, normalized_prefix: str) -> Optiona
 
         # Deletion
         if i + prefix_len - 1 <= sentence_len and prefix_len > 0:
-            window = normalized_sentence[i : i + prefix_len - 1]
+            window = normalized_sentence[i: i + prefix_len - 1]
             for j in range(prefix_len):
-                temp_prefix = normalized_prefix[:j] + normalized_prefix[j+1:]
+                temp_prefix = normalized_prefix[:j] + normalized_prefix[j + 1:]
                 if window == temp_prefix:
                     return 3, j + 1
 
         # Addition
         if i + prefix_len + 1 <= sentence_len:
-            window = normalized_sentence[i : i + prefix_len + 1]
+            window = normalized_sentence[i: i + prefix_len + 1]
             for j in range(len(window)):
-                temp_window = window[:j] + window[j+1:]
+                temp_window = window[:j] + window[j + 1:]
                 if temp_window == normalized_prefix:
                     return 2, j + 1
 
     return None
 
 
-def get_best_k_completions(prefix: str) -> List[AutoCompleteData]:
+def get_best_k_completions(trie: Trie, prefix: str) -> List[AutoCompleteData]:
     """
-    Retrieves the top 5 sentence completions based on the given prefix.
+    Retrieves the top 5 sentence completions based on the given prefix, using the Trie.
     """
-    conn = sqlite3.connect('autocomplete.db')
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT sentence, normalized_sentence, source_file, line_offset FROM sentences")
-    all_sentences = cursor.fetchall()
-
-    conn.close()
-
     completions: List[AutoCompleteData] = []
     normalized_prefix = normalize_text(prefix)
 
-    for sentence, normalized_sentence, source_file, offset in all_sentences:
-        match_info = find_best_match(normalized_sentence, normalized_prefix)
+    # In this approach, we scan all sentences (retrieved from the Trie) to find matches, including those with a correction.
+    all_sentences = trie.search_for_completions("")
+
+    for completion_data in all_sentences:
+        match_info = find_best_match(normalize_text(completion_data.completed_sentence), normalized_prefix)
         if match_info:
             correction_type, correction_position = match_info
 
-            # Calculate the number of matching characters
             matched_length = len(normalized_prefix)
-            if correction_type == 3:  # Deletion
+            if correction_type == 3:
                 matched_length -= 1
 
             score = calculate_score(matched_length, correction_type, correction_position)
 
-            completions.append(AutoCompleteData(sentence, source_file, offset, score))
+            completions.append(AutoCompleteData(
+                completion_data.completed_sentence,
+                completion_data.source_text,
+                completion_data.offset,
+                score
+            ))
 
-    # Sort by score (descending), then by completed_sentence (alphabetical)
     completions.sort(key=lambda x: (-x.score, x.completed_sentence))
 
     return completions[:5]
