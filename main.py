@@ -8,15 +8,15 @@ def main():
     db_file = "autocomplete.db"
     if os.path.exists(db_file):
         os.remove(db_file)
-    if not os.path.exists("Archive/subdir"):
-        os.makedirs("Archive/subdir")
-    with open("Archive/file1.txt", "w") as f:
-        f.write("This is a test sentence for the project.\n")
-        f.write("Another test for auto-completion, what a fun project.\n")
-        f.write("The quick brown fox jumps over the lazy dog.\n")
-    with open("Archive/subdir/file2.txt", "w") as f:
-        f.write("A sentence in a subdirectory for testing paths.\n")
-        f.write("A different test of file paths in a sub dir.\n")
+    # if not os.path.exists("Archive/subdir"):
+    #     os.makedirs("Archive/subdir")
+    # with open("Archive/file1.txt", "w") as f:
+    #     f.write("This is a test sentence for the project.\n")
+    #     f.write("Another test for auto-completion, what a fun project.\n")
+    #     f.write("The quick brown fox jumps over the lazy dog.\n")
+    # with open("Archive/subdir/file2.txt", "w") as f:
+    #     f.write("A sentence in a subdirectory for testing paths.\n")
+    #     f.write("A different test of file paths in a sub dir.\n")
     # --- End of setup ---
 
     Initialize.initialize_database("Archive")

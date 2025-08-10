@@ -1,15 +1,19 @@
 import sqlite3
 import os
 import re
+import string
 
 
 def normalize_text(text: str) -> str:
     """
-    Normalizes a string by converting it to lowercase, removing punctuation, and handling multiple spaces.
+    Normalizes a string by converting it to lowercase, removing all punctuation, and handling multiple spaces.
     """
+    # Create a translation table to remove all punctuation
+    translator = str.maketrans('', '', string.punctuation)
+    text = text.translate(translator)
+
     text = text.lower()
-    text = re.sub(r'[!.,@$]', '', text)  # Remove specific punctuation marks
-    text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces with a single space
+    text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
 def initialize_database(root_folder: str):
