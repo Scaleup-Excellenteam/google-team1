@@ -120,8 +120,9 @@ class AutoCompleteSystem:
                                     # Store short words (length 2 or 1) as is
                                     self.word_index.setdefault(w, []).append(idx)
                                 else:
-                                    # Then index substrings of length 3–5
-                                    for length in range(3, min(6, len(w) + 1)):
+                                    # Index only substrings of length 3
+                                    length = 3
+                                    if len(w) >= length:
                                         for j in range(len(w) - length + 1):
                                             substring = w[j:j + length]
                                             self.word_index.setdefault(substring, []).append(idx)
@@ -175,17 +176,10 @@ class AutoCompleteSystem:
                 candidate_idxs = set(range(len(self.sentences)))
 
         else:
-            # For words length >= 3 — index search for substrings length 3–5
-            for length in range(3, min(6, len(first_word) + 1)):
-                if length <= len(first_word):
-                    substring = first_word[:length]
-                    indices = self.word_index.get(substring, [])
-                    candidate_idxs.update(indices)
-
-            # Fallback: use first 3 characters
-            if not candidate_idxs and len(first_word) >= 3:
+            if len(first_word) >= 3:
                 substring = first_word[:3]
-                candidate_idxs.update(self.word_index.get(substring, []))
+                indices = self.word_index.get(substring, [])
+                candidate_idxs.update(indices)
 
             # If still no direct matches — fallback to scanning all sentences
             if not candidate_idxs:
