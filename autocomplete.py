@@ -23,14 +23,15 @@ class AutoCompleteData:
 
 def normalize_text(s: str) -> str:
     """
-    Normalize input text by removing punctuation, lowering case, and collapsing spaces.
+    Normalize input text by removing punctuation, converting to lowercase,
+    and collapsing multiple spaces into a single space.
     """
     return " ".join(s.translate(_PUNCT_TABLE).lower().split())
 
 
 def penalty_for(kind: str, pos: int) -> int:
     """
-    Return penalty score based on edit kind and position.
+    Return penalty score based on edit type and position.
     """
     idx = pos - 1
     if kind == "substitution":
@@ -42,10 +43,12 @@ def penalty_for(kind: str, pos: int) -> int:
 
 def single_edit_match_info(prefix: str, candidate: str):
     """
-    Check if prefix can be converted into candidate with a single edit.
-    Returns ("exact", 0) if exact match,
-    or (kind, position) if single edit match,
-    or None if no match.
+    Check if 'prefix' can be transformed into 'candidate' with a single edit.
+
+    Returns:
+        ("exact", 0) if exact match,
+        (kind, position) if a single edit match is found,
+        None if no match.
     """
     if prefix == candidate:
         return ("exact", 0)
@@ -82,15 +85,14 @@ def single_edit_match_info(prefix: str, candidate: str):
 class AutoCompleteSystem:
     def __init__(self):
         """
-        Initialize the autocomplete system.
+        Initialize the autocomplete system with empty sentence and index storage.
         """
         self.sentences: List[Tuple[str, str, int]] = []
         self.word_index: Dict[str, List[int]] = {}
 
-
     def build_from_folder(self, root_folder: str):
         """
-        Build index from all supported text files under root_folder.
+        Build the index from all supported text files under 'root_folder'.
         """
         print("Scanning files and loading sentences...")
 
@@ -114,16 +116,12 @@ class AutoCompleteSystem:
                             words = norm.split()
 
                             for w in words:
-                                if len(w) == 2:
-                                    # שמירה של מילה קצרה בשלמותה
+                                if len(w) in (1,2):
+                                    # Store short words (length 2 or 1) as is
                                     self.word_index.setdefault(w, []).append(idx)
                                 else:
-                                    # אינדוקס רגיל: קודם אורך 3
-                                    for j in range(len(w) - 2):
-                                        substring = w[j:j + 3]
-                                        self.word_index.setdefault(substring, []).append(idx)
-                                    # ואז 4–5
-                                    for length in range(4, min(6, len(w) + 1)):
+                                    # Then index substrings of length 3–5
+                                    for length in range(3, min(6, len(w) + 1)):
                                         for j in range(len(w) - length + 1):
                                             substring = w[j:j + length]
                                             self.word_index.setdefault(substring, []).append(idx)
@@ -135,7 +133,7 @@ class AutoCompleteSystem:
 
     def save_cache(self):
         """
-        Save sentences and index to compressed cache file.
+        Save sentences and index to a compressed cache file.
         """
         print(f"Saving cache to {CACHE_FILE}...")
         with gzip.open(CACHE_FILE, "wb") as f:
@@ -144,7 +142,7 @@ class AutoCompleteSystem:
 
     def load_cache(self):
         """
-        Load sentences and index from compressed cache file.
+        Load sentences and index from a compressed cache file.
         """
         print(f"Loading cache from {CACHE_FILE}...")
         with gzip.open(CACHE_FILE, "rb") as f:
@@ -154,7 +152,7 @@ class AutoCompleteSystem:
 
     def get_best_k_completions(self, prefix: str) -> List[AutoCompleteData]:
         """
-        Return top k best completions for the given prefix.
+        Return the top 5 best completions for the given prefix.
         """
         prefix_norm = normalize_text(prefix)
         if not prefix_norm:
@@ -166,27 +164,33 @@ class AutoCompleteSystem:
         first_word = prefix_norm.split()[0]
         candidate_idxs = set()
 
-        # 🔹 טיפול במילים קצרות (אורך 2)
-        if len(first_word) == 2:
+        # Handle very short words (length 1 or 2) with direct dictionary lookup
+        if len(first_word) in (1, 2):
             indices = self.word_index.get(first_word, [])
-            candidate_idxs.update(indices)
+            if indices:
+                candidate_idxs.update(indices)
+            else:
+                # No direct matches for short word — fallback to scanning all sentences
+                print(f"No direct matches found for '{first_word}', checking all sentences for single edit matches...")
+                candidate_idxs = set(range(len(self.sentences)))
+
         else:
-            # אינדוקס רגיל 3–5 תווים
+            # For words length >= 3 — index search for substrings length 3–5
             for length in range(3, min(6, len(first_word) + 1)):
                 if length <= len(first_word):
                     substring = first_word[:length]
                     indices = self.word_index.get(substring, [])
                     candidate_idxs.update(indices)
 
-            # אם לא נמצאו — ניסיון נוסף עם 3 תווים ראשונים
+            # Fallback: use first 3 characters
             if not candidate_idxs and len(first_word) >= 3:
                 substring = first_word[:3]
                 candidate_idxs.update(self.word_index.get(substring, []))
 
-        # אם אין התאמות ישירות — fallback לחיפוש בכל המשפטים
-        if not candidate_idxs:
-            print(f"No direct matches found for '{first_word}', checking all sentences for single edit matches...")
-            candidate_idxs = set(range(len(self.sentences)))
+            # If still no direct matches — fallback to scanning all sentences
+            if not candidate_idxs:
+                print(f"No direct matches found for '{first_word}', checking all sentences for single edit matches...")
+                candidate_idxs = set(range(len(self.sentences)))
 
         candidate_idxs = list(candidate_idxs)
 
@@ -232,3 +236,4 @@ class AutoCompleteSystem:
                 break
 
         return final_results
+
